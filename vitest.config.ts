@@ -12,6 +12,15 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['lcov', 'text'],
       reportsDirectory: './coverage',
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: [
+        'src/__tests__/**',
+        'src/main.tsx',
+        'src/App.tsx',
+        'src/index.css',
+        'src/vite-env.d.ts',
+        'src/types/**',
+      ],
     },
     reporters: ['default', 'junit'],
     outputFile: {
