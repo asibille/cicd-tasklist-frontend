@@ -1,5 +1,5 @@
-import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent, act } from '@testing-library/react';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { TaskItem } from '../components/TaskItem';
 import type { Task } from '../types/task';
 
@@ -18,6 +18,10 @@ const completedTask: Task = {
 };
 
 describe('TaskItem', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('renders task title and description', () => {
     render(<TaskItem task={mockTask} onToggle={vi.fn()} onDelete={vi.fn()} onEdit={vi.fn()} />);
     expect(screen.getByText('Test Task')).toBeInTheDocument();
@@ -70,5 +74,49 @@ describe('TaskItem', () => {
     render(<TaskItem task={taskNoDesc} onToggle={vi.fn()} onDelete={vi.fn()} onEdit={vi.fn()} />);
     expect(screen.getByText('Test Task')).toBeInTheDocument();
     expect(screen.queryByText('Test description')).not.toBeInTheDocument();
+  });
+
+  // --- Nouveaux tests : couverture lignes 55-62 (handleDelete) ---
+
+  it('shows confirmation icon after first delete click', () => {
+    render(<TaskItem task={mockTask} onToggle={vi.fn()} onDelete={vi.fn()} onEdit={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Supprimer' }));
+    expect(screen.getByRole('button', { name: 'Supprimer' })).toHaveTextContent('⚠️');
+  });
+
+  it('does not call onDelete after only one click', () => {
+    const onDelete = vi.fn();
+    render(<TaskItem task={mockTask} onToggle={vi.fn()} onDelete={onDelete} onEdit={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Supprimer' }));
+    expect(onDelete).not.toHaveBeenCalled();
+  });
+
+  it('resets confirmation state after timeout', () => {
+    vi.useFakeTimers();
+    render(<TaskItem task={mockTask} onToggle={vi.fn()} onDelete={vi.fn()} onEdit={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Supprimer' }));
+    expect(screen.getByRole('button', { name: 'Supprimer' })).toHaveTextContent('⚠️');
+
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
+    expect(screen.getByRole('button', { name: 'Supprimer' })).toHaveTextContent('🗑️');
+  });
+
+  // --- Nouveau test : couverture garde handleSave (titre vide) ---
+
+  it('does not call onEdit when title is empty or whitespace', () => {
+    const onEdit = vi.fn();
+    render(<TaskItem task={mockTask} onToggle={vi.fn()} onDelete={vi.fn()} onEdit={onEdit} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Modifier' }));
+
+    const input = screen.getByLabelText('Modifier le titre');
+    fireEvent.change(input, { target: { value: '   ' } });
+    fireEvent.click(screen.getByText('Enregistrer'));
+
+    expect(onEdit).not.toHaveBeenCalled();
+    // reste en mode édition puisque la sauvegarde a été bloquée
+    expect(screen.getByLabelText('Modifier le titre')).toBeInTheDocument();
   });
 });
